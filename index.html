@@ -2,71 +2,197 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Photostrip 4-Cut</title>
+  <title>4-Cut Photobooth</title>
   <style>
     body {
-      display: flex;
-      justify-content: space-around;
-      align-items: flex-start;
+      background: #f9f9f9;
       font-family: sans-serif;
-      background: #ffe6f0;
-      padding: 20px;
+      display: flex;
+      gap: 20px;
+      margin: 20px;
     }
-
     #leftPanel {
       display: flex;
       flex-direction: column;
       align-items: center;
+    }
+    #liveviewContainer {
+      position: relative;
+      width: 457px;
+      height: 451px;
+      border: 2px solid #aaa;
+    }
+    #liveview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1); /* mirror */
+    }
+    #countdown {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 80px;
+      color: white;
+      text-shadow: 2px 2px 8px #000;
+      display: none;
+      z-index: 10;
+    }
+    #photoPreviews {
+      display: flex;
       gap: 10px;
+      margin-top: 10px;
     }
-
-    video {
-      width: 240px;
-      transform: scaleX(-1); /* Mirror webcam */
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    #photoPreviews img {
+      width: 100px;
+      height: 100px;
+      object-fit: cover;
+      border: 1px solid #ccc;
     }
-
-    #photos {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
+    #controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 20px;
     }
-
-    .thumb {
-      width: 120px;
-      border-radius: 6px;
+    #controls button {
+      font-size: 18px;
+      padding: 10px 20px;
     }
-
-    canvas {
+    #framePreview {
       width: 341px;
       height: 1024px;
-      image-rendering: auto;
-      border-radius: 10px;
-    }
-
-    button {
-      margin-top: 5px;
-      padding: 8px 16px;
-      font-size: 16px;
-      background-color: pink;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    #countdown {
-      font-size: 48px;
-      color: red;
-      font-weight: bold;
-      position: absolute;
-      top: 20px;
+      border: 1px solid #000;
     }
   </style>
 </head>
 <body>
   <div id="leftPanel">
-    <video id="video" autoplay playsinline></video>
-    <div id="countdown"></div>
-    <button id
+    <div id="liveviewContainer">
+      <video id="liveview" autoplay></video>
+      <div id="countdown">3</div>
+    </div>
+    <div id="photoPreviews">
+      <img id="preview1" />
+      <img id="preview2" />
+      <img id="preview3" />
+      <img id="preview4" />
+    </div>
+    <div id="controls">
+      <button id="startBtn">Start</button>
+      <button id="retakeBtn">Retake</button>
+      <button id="downloadBtn" style="display: none;">Download</button>
+    </div>
+  </div>
+  <div>
+    <img id="framePreview" src="IMG_4008.png" />
+  </div>
+
+  <script>
+    const liveview = document.getElementById("liveview");
+    const countdownEl = document.getElementById("countdown");
+    const previewImgs = [
+      document.getElementById("preview1"),
+      document.getElementById("preview2"),
+      document.getElementById("preview3"),
+      document.getElementById("preview4")
+    ];
+    const downloadBtn = document.getElementById("downloadBtn");
+    const framePreview = document.getElementById("framePreview");
+
+    let captured = [];
+
+    const pos = [
+      { x: 111, y: 165, w: 457, h: 451 },
+      { x: 111, y: 591, w: 457, h: 451 },
+      { x: 111, y: 1017, w: 457, h: 451 },
+      { x: 111, y: 1443, w: 457, h: 451 }
+    ];
+
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      liveview.srcObject = stream;
+    });
+
+    function showCountdown(cb) {
+      let count = 3;
+      countdownEl.textContent = count;
+      countdownEl.style.display = "block";
+      const interval = setInterval(() => {
+        count--;
+        if (count === 0) {
+          clearInterval(interval);
+          countdownEl.style.display = "none";
+          cb();
+        } else {
+          countdownEl.textContent = count;
+        }
+      }, 1000);
+    }
+
+    function capture(idx) {
+      const canvas = document.createElement("canvas");
+      canvas.width = pos[idx].w;
+      canvas.height = pos[idx].h;
+      const ctx = canvas.getContext("2d");
+
+      // mirror draw
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(liveview, 0, 0, canvas.width, canvas.height);
+      captured[idx] = canvas;
+
+      previewImgs[idx].src = canvas.toDataURL();
+    }
+
+    function generateFinalImage() {
+      const canvas = document.createElement("canvas");
+      canvas.width = 682;
+      canvas.height = 2048;
+      const ctx = canvas.getContext("2d");
+
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let i = 0; i < 4; i++) {
+        const { x, y, w, h } = pos[i];
+        ctx.drawImage(captured[i], x, y, w, h);
+      }
+
+      const frame = new Image();
+      frame.src = "IMG_4008.png";
+      frame.onload = () => {
+        ctx.drawImage(frame, 0, 0);
+        const dataUrl = canvas.toDataURL("image/png");
+        framePreview.src = dataUrl;
+        downloadBtn.style.display = "inline-block";
+        downloadBtn.onclick = () => {
+          const a = document.createElement("a");
+          a.href = dataUrl;
+          a.download = "photobooth_4cut.png";
+          a.click();
+        };
+      };
+    }
+
+    document.getElementById("startBtn").onclick = async () => {
+      captured = [];
+      for (let i = 0; i < 4; i++) {
+        await new Promise(resolve => {
+          showCountdown(() => {
+            capture(i);
+            resolve();
+          });
+        });
+      }
+      generateFinalImage();
+    };
+
+    document.getElementById("retakeBtn").onclick = () => {
+      captured = [];
+      previewImgs.forEach(img => img.src = "");
+      framePreview.src = "IMG_4008.png";
+      downloadBtn.style.display = "none";
+    };
+  </script>
+</body>
+</html>
