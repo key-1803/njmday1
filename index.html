@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Photostrip 4-Cut</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-start;
+      font-family: sans-serif;
+      background: #ffe6f0;
+      padding: 20px;
+    }
+
+    #leftPanel {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    video {
+      width: 240px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    #photos {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .thumb {
+      width: 120px;
+      border-radius: 6px;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
+      background-color: pink;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #finalCanvas {
+      width: 341px;
+      height: 1024px;
+      image-rendering: auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="leftPanel">
+    <video id="video" autoplay playsinline></video>
+    <button id="capture">📸 Ambil Foto</button>
+    <div id="photos"></div>
+  </div>
+
+  <canvas id="finalCanvas" width="682" height="2048"></canvas>
+
+  <script>
+    const video = document.getElementById('video');
+    const captureBtn = document.getElementById('capture');
+    const finalCanvas = document.getElementById('finalCanvas');
+    const finalCtx = finalCanvas.getContext('2d');
+    const photosDiv = document.getElementById('photos');
+
+    const frame = new Image();
+    frame.src = 'IMG_4008.png'; // Make sure this file is in the same folder
+    const holes = [
+      { x: 0, y: 0, width: 682, height: 512 },         // 1st shape (top)
+      { x: 0, y: 512, width: 682, height: 512 },       // 2nd shape (oval)
+      { x: 0, y: 1024, width: 682, height: 512 },      // 3rd shape
+      { x: 0, y: 1536, width: 682, height: 512 },      // 4th shape (oval)
+    ];
+
+    let shotCount = 0;
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => video.srcObject = stream)
+      .catch(err => alert("Webcam error: " + err));
+
+    captureBtn.onclick = () => {
+      if (shotCount >= 4) return;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 682;
+      tempCanvas.height = 512;
+      const ctx = tempCanvas.getContext('2d');
+
+      // Draw current video frame
+      ctx.drawImage(video, 0, 0, 682, 512);
+
+      // Draw it to final canvas
+      const hole = holes[shotCount];
+      finalCtx.drawImage(tempCanvas, hole.x, hole.y, hole.width, hole.height);
+
+      // Append to thumbnails
+      const img = document.createElement('img');
+      img.src = tempCanvas.toDataURL();
+      img.className = 'thumb';
+      photosDiv.appendChild(img);
+
+      shotCount++;
+
+      // After 4 shots, draw the frame
+      if (shotCount === 4) {
+        frame.onload = () => {
+          finalCtx.drawImage(frame, 0, 0, 682, 2048);
+        };
+        if (frame.complete) {
+          finalCtx.drawImage(frame, 0, 0, 682, 2048);
+        }
+      }
+    };
+  </script>
+</body>
+</html>
